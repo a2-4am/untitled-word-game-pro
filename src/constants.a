@@ -1,0 +1,40 @@
+;license:MIT
+;(c) 2022 by 4am
+;
+
+; soft switches
+KBD =          $C000      ; last key pressed (if any)
+CLEARKBD =     $C010      ; clear last key pressed
+SPEAKER =      $C030
+
+; ROM routines and addresses
+TEXTTOP      = $22        ; byte
+TEXTBOTTOM   = $23        ; byte
+HTAB         = $24        ; byte
+VTAB         = $25        ; byte
+RNDSEED      = $4E        ; word
+MLI =          $BF00
+ROM_TEXT =     $FB2F
+ROM_TEXT_RECALC = $FC22
+ROM_HOME =     $FC58
+ROM_WAIT =     $FCA8
+ROM_PRINT =    $FDF0
+ROM_NORMAL =   $FE84      ; NORMAL text (instead of INVERSE or FLASH)
+ROM_IN0 =      $FE89      ; SETKBD
+ROM_PR0 =      $FE93      ; SETVID
+
+; application-specific addresses and constants
+CR =           $8D        ; carriage return
+QQ =           $A2        ; quotation mark
+
+ptr          = $00        ; word
+counter      = $02        ; byte
+gProgressIndicatorIndex = $03 ; byte
+
+tempstor=$300 ;requires 26*tblsize(4) bytes
+word_size=5
+nstore=RNDSEED ;16-bit
+locstore=$fa ;16-bit
+fetched=$fc
+index=$fd
+tblptr=$fe ;16-bit

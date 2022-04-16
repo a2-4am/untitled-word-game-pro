@@ -1,0 +1,390 @@
+;license:MIT
+;(c) 2022 by 4am
+
+!ct "src/lcase.ct"
+!cpu 6502
+!to "build/UNTITLED.SYSTEM",plain
+*=$2000
+
+         !source "src/constants.a"   ; no code
+         !source "src/macros.a"      ; no code
+
+Start
+         +READ_ROM_NO_WRITE
+         ldx   #$0E
+-        sta   $C000, x
+         dex
+         dex
+         bpl   -
+         jsr   ROM_TEXT
+         jsr   ROM_HOME
+         jsr   ROM_NORMAL
+         jsr   ROM_IN0
+         jsr   ROM_PR0
+@a       lda   sHelpText
+         beq   +
+         jsr   ROM_PRINT
+         inc   @a+1
+         bne   @a
+         inc   @a+2
+         bne   @a
++
+         lda   #$04
+         sta   TEXTTOP
+         lda   #$15
+         sta   TEXTBOTTOM
+         jmp   WaitForKeyThenNewGame
+
+WaitForKey
+         bit   CLEARKBD
+-        inc   RNDSEED
+         bne   +
+         inc   RNDSEED+1
++        lda   KBD
+         bpl   -
+         rts
+
+kProgressIndicators
+         !byte $2F,$2D,$1C,$21
+
+kWinTune
+         !byte $E9,$AF,$B8,$D0,$E9,$B8,$D0,$AF,$B8,$9A,$AF,$89,$9A
+
+DisplayProgress
+         inc   <gProgressIndicatorIndex
+         lda   <gProgressIndicatorIndex
+         and   #3
+         tax
+         lda   kProgressIndicators, x
+         sta   ($28), y
+         rts
+
+DeactivateRowAndPrint
+         ldy   #11
+-        lda   <gActiveGuess-11-4, y
+         sta   ($28), y
+         iny
+         jsr   DisplayProgress
+         lda   #$A0
+         sta   <gActiveRow+4
+         sta   <gActiveRow+16
+         jsr   ROM_WAIT
+         cpy   #26
+         bne   -
+PrintActiveRow
+         +LDADDR gActiveRow
+         ldx   <gActiveVTAB
+         +HIDE_NEXT_2_BYTES
+PrintAt17
+         ldx   #17
+         stx   VTAB
+Print
+; out:   Z=1
+         ldx   #0
+         stx   HTAB
+         +ST16 ptr
+         jsr   ROM_TEXT_RECALC       ; needed after setting HTAB or VTAB
+         ldy   #0
+--       inx
+         !byte $A9                   ; mask TAX
+@count   tax
+         clc
+-        lda   (ptr), y
+         beq   PrintExit
+         iny
+         bcs   @count
+         cmp   #$FF
+         beq   -
+@cout    jsr   ROM_PRINT
+         dex
+         bne   @cout
+         beq   --                    ; always branches
+         ;-----
+PrintExit
+         +LDADDR sWin
+         ldx   counter
+         rts
+
+kAlphabetLetterIndex                 ; 0-based index into sAlphabet where each letter is positioned
+                                     ; (used for blanking out letters as they are used)
+         !byte 26                    ; A
+         !byte 55                    ; B
+         !byte 51                    ; C
+         !byte 30                    ; D
+         !byte  7                    ; E
+         !byte 32                    ; F
+         !byte 34                    ; G
+         !byte 36                    ; H
+         !byte 17                    ; I
+         !byte 38                    ; J
+         !byte 40                    ; K
+         !byte 42                    ; L
+         !byte 59                    ; M
+         !byte 57                    ; N
+         !byte 19                    ; O
+         !byte 21                    ; P
+         !byte  3                    ; Q
+         !byte  9                    ; R
+         !byte 28                    ; S
+         !byte 11                    ; T
+         !byte 15                    ; U
+         !byte 53                    ; V
+         !byte  5                    ; W
+         !byte 49                    ; X
+         !byte 13                    ; Y
+         !byte 47                    ; Z
+
+sWin
+         !byte $FF,50
+         !text " ! CONGRATULATIONS !",CR,$FF,40," ",0
+sBlankRow
+         !byte CR,$FF,15
+         !text " . . . . .",CR,0
+
+PER_GAME_GLOBALS
+!pseudopc $80 {
+PER_GAME_GLOBALS_ZP
+
+gAlphabet                            ; 0-terminated
+         !byte $FF,10
+         !text " Q W E R T Y U I O P",CR
+         !byte $FF,11
+         !text " A S D F G H J K L",CR
+         !byte $FF,12
+         !text " Z X C V B N M",0
+gActiveVTAB                          ; byte
+         !byte 4
+sLose
+         !byte $FF,14
+         !text " THE WORD IS"
+         !byte $FF,70
+         !text " "                   ; not 0-terminated because we want to print the solution after it
+gSolution
+         !text "S T O R Y"
+SOLUTION_LEN=*-gSolution
+         !text " ",0                 ; 0-terminated so gSolution can be directly printable if you lose
+}
+PER_GAME_GLOBALS_LEN=*-PER_GAME_GLOBALS
+
+PER_GUESS_GLOBALS
+!pseudopc PER_GAME_GLOBALS_ZP+PER_GAME_GLOBALS_LEN {
+PER_GUESS_GLOBALS_ZP
+
+gActiveLetterIndex
+         !byte 0
+gActiveRow
+         !byte $FF,12
+         !text "  [ "
+gActiveGuess
+         !byte $60
+         !text " . . . . ] ",0
+gSolutionCopy                        ; 9 bytes (not copied)
+}
+PER_GUESS_GLOBALS_LEN=*-PER_GUESS_GLOBALS
+
+sHelpText
+         !text "         UNTITLED WORD GAME PRO",$8D
+         !text "________________________________________",$8D,$8D
+         !text "GUESS THE WORD IN SIX TRIES. EACH GUESS",$8D
+         !text "MUST BE A VALID FIVE-LETTER WORD.",$8D,$8D
+         !text "PRESS RETURN TO SUBMIT YOUR GUESS, THEN",$8D
+         !text "LETTERS WILL LIGHT UP TO SHOW HOW CLOSE",$8D
+         !text "YOUR GUESS WAS.",$8D,$8D,$8D
+         !text " [ C L ",$0F," W N ]   ",QQ,"O",QQ," IS IN THE WORD AND",$8D
+         !text "                 IN THE RIGHT SPOT",$8D,$8D
+         !text " [ ",$54," H U M P ]   ",QQ,"T",QQ," IS IN THE WORD BUT",$8D
+         !text "                 IN THE WRONG SPOT",$8D,$8D
+         !text " [ B L A D E ]   NONE OF THESE LETTERS",$8D
+         !text "                 APPEAR IN THE WORD",$8D,$8D
+         !text "________________________________________",$8D
+         !text "       V1.0 (C) 2022 4AM & QKUMBA",0
+
+BadGuess
+@incdec  inc   <gActiveRow+1
+         jsr   PrintActiveRow
+         lda   #$B0
+         jsr   ROM_WAIT
+         lda   @incdec
+         eor   #$20                  ; INC <-> DEC
+         sta   @incdec
+         dec   counter
+         bne   @incdec
+-        jmp   NewKey
+SubmitGuess
+         cpx   #10                   ; refuse guess if fewer than 5 letters
+         bcc   -
+         ldx   #8                    ; skip expensive exists() call if guess is correct
+         stx   counter
+-        lda   <gActiveGuess, x
+         cmp   <gSolution, x
+         beq   @checkSol
+         jsr   exists
+         bne   BadGuess
+@checkSol
+         dex
+         bpl   -
+         ldy   #8                    ; first, update alphabet to clear letters we've used
+-        lda   <gActiveGuess, y
+         and   #$1F
+         tax
+         lda   kAlphabetLetterIndex-1, x
+         tax
+         lda   <gAlphabet, x
+         bpl   +                     ; if already highlighted in alphabet, leave it
+         lda   #$A0                  ; space
+         sta   <gAlphabet, x         ; clear letter in alphabet
++        dey
+         dey
+         bpl   -
+         lda   #5                    ; second, look for letters in the right position
+         sta   counter
+         ldx   #10                   ; 2 more than we want, so loop terminates at X=0
+-        lda   <gActiveGuess-2, x
+         cmp   <gSolutionCopy-2, x
+         bne   +
+         dec   counter
+         and   #$1F
+         sta   <gActiveGuess-2, x    ; highlight letter in guess (inverse)
+         tay
+         lda   #0
+         sta   <gSolutionCopy-2, x   ; clobber letter in solution so we don't double-count
+         lda   kAlphabetLetterIndex-1, y
+         tay
+         lda   <gActiveGuess-2, x
+         sta   gAlphabet, y          ; highlight letter in alphabet (inverse)
++        dex
+         dex
+         bne   -
+         ;X=0
+--       ldy   #8                    ; third, look for letters in the wrong position
+-        lda   <gActiveGuess, x
+         cmp   <gSolutionCopy, y
+         bne   @letterNotFound
+@foundWrongPosition
+         and   #$7F
+         sta   <gActiveGuess, x      ; highlight letter in guess (flashing)
+         stx   <gSolutionCopy, y     ; clobber letter in solution so we don't double-count
+         tay
+         lda   kAlphabetLetterIndex-$41, y
+         tay
+         lda   <gAlphabet, y
+         bpl   +                     ; if already highlighted in alphabet, leave it
+         lda   <gActiveGuess, x
+         sta   gAlphabet, y          ; highlight letter in alphabet (flashing)
+         !byte $A0                   ; LDY, the following $88 sets N flag
+@letterNotFound
+         dey
+         dey
+         bpl   -
++        inx                         ; increment so we find left-most match first
+         inx
+         cpx   #10
+         bcc   --
+         jsr   DeactivateRowAndPrint
+         beq   Win
+         inc   <gActiveVTAB
+         inc   <gActiveVTAB
+         lda   <gActiveVTAB
+         eor   #16
+         bne   NewGuess
+Lose
+         tay
+         lda   #<sLose
+Win
+         jsr   PrintAt17
+         ldx   counter
+         bne   WaitForKeyThenNewGame ; no tune if you lost
+         ldy   #$0C
+---      ldx   #$38
+         stx   counter
+--       ldx   kWinTune, y
+-        cpx   counter
+         bne   +
+         lda   SPEAKER
++        dex
+         bne   -
+         lda   SPEAKER
+         dec   counter
+         bne   --
+         dey
+         bpl   ---
+WaitForKeyThenNewGame
+         jsr   WaitForKey
+NewGame
+         ldx   #PER_GAME_GLOBALS_LEN
+-        lda   PER_GAME_GLOBALS-1, x
+         sta   <PER_GAME_GLOBALS_ZP-1, x
+         dex
+         bne   -
+         jsr   ROM_HOME
+         jsr   nth
+         ldx   #5
+         stx   counter
+         stx   VTAB
+-        +LDADDR sBlankRow
+         jsr   Print
+         dec   counter
+         bne   -
+NewGuess
+         ldy   #PER_GUESS_GLOBALS_LEN
+-        ldx   PER_GUESS_GLOBALS-1, y
+         stx   <PER_GUESS_GLOBALS_ZP-1, y
+         ldx   <gSolution-1, y
+         stx   <gSolutionCopy-1, y   ; clobbered during submit
+         dey
+         bne   -
+         lda   #<gAlphabet
+         ;Y=0
+         jsr   PrintAt17
+RefreshGuess
+         jsr   PrintActiveRow
+NewKey
+         jsr   WaitForKey
+         ldx   <gActiveLetterIndex
+         cmp   #$8D                  ; CR
+         bne   +
+         jmp   SubmitGuess
++        cmp   #$88                  ; left arrow
+         beq   DeleteLetter
+         cmp   #$FF                  ; delete
+         beq   DeleteLetter
+         cmp   #$9B                  ; Esc
+         beq   Quit
+         and   #$DF                  ; convert lowercase to uppercase
+         cmp   #$C1
+         bcc   NewKey
+         cmp   #$DB
+         bcs   NewKey
+         cpx   #10
+         bcs   NewKey                ; already have 5 letters in this guess, so can't add another
+         sta   <gActiveGuess, x      ; store new letter
+         inx
+         inx
+UpdateCursor
+         stx   <gActiveLetterIndex   ; increment position within guess
+         cpx   #10
+         bcs   RefreshGuess
+         lda   #$60                  ; 'cursor' (flashing space)
+         sta   <gActiveGuess, x      ; if not 5 letters yet, show 'cursor' at new position
+         bne   RefreshGuess          ; always branches
+         ;-----
+DeleteLetter
+         txa
+         beq   NewKey                ; 0 letters in this guess, so nothing to delete
+         cpx   #10
+         bcs   +
+         lda   #$AE                  ; '.'
+         sta   <gActiveGuess, x
++        dex
+         dex
+         bpl   UpdateCursor          ; always branches
+         ;-----
+Quit
+         bit   CLEARKBD
+         jsr   MLI
+         !byte $65
+         !word +
++        !byte 4,0,0,0,0
+         ;-----
+
+         !src  "src/lookup.a"

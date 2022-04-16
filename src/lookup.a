@@ -1,0 +1,311 @@
+;license:MIT
+;(c) 2022 by qkumba
+
+!cpu 6502
+
+END_OF_WORD_BIT_MASK=$80
+END_OF_LIST_BIT_MASK=$40
+LETTER_BIT_MASK=$1F
+
+;------------------------------------------------------------------------------
+; nth
+;
+; finds and returns nth word from vetted table
+;
+; in:    nstore (2 bytes) set to value of n
+;          can technically be any 16-bit value, will be ANDed to 11 bits (0..2047)
+; out:   gSolution (9 bytes) contains space-separated word
+;------------------------------------------------------------------------------
+nth
+        ldy    #0
+        sec
+
+.search
+        lda    nstore
+        sbc    vetlocs, y
+        tax
+        lda    nstore + 1
+        and    #7                    ; max 2048 words in vetted list
+        sbc    #0
+        bcc    .foundbase
+        stx    nstore
+        sta    nstore + 1
+        iny
+        bne    .search               ; always
+
+.foundbase
+        sty    fetched
+        tya
+        asl
+        adc    fetched
+        adc    #<(vet + 3)
+        sta    tblptr
+        lda    #0
+        sta    index
+        adc    #>(vet + 3)
+        sta    tblptr + 1
+        inc    nstore
+        bne    nth_recurse
+        inc    nstore + 1
+
+        ; fall through
+
+nth_recurse
+        ldy    #0
+        lda    (tblptr), y
+        sta    fetched
+        and    #LETTER_BIT_MASK
+        ora    #'A' - 1
+        ldx    index
+        sta    gSolution, x
+        bit    fetched
+        bpl    nth_child             ; bit END_OF_WORD_BIT_MASK
+        lda    nstore
+        bne    +
+        dec    nstore + 1
++       dec    nstore
+        jsr    nth_check
+        beq    nth_ret
+
+nth_child
+        iny
+        lda    (tblptr), y
+        tax
+        iny
+        ora    (tblptr), y
+        beq    nth_next
+        php
+        lda    tblptr + 1
+        pha
+        lda    tblptr
+        pha
+        txa
+        adc    #<vet
+        tax
+        lda    (tblptr), y
+        adc    #>vet
+        sta    tblptr + 1
+        stx    tblptr
+        lda    index
+        pha
+        inc    index
+        inc    index
+        jsr    nth_recurse
+        pla
+        sta    index
+        pla
+        sta    tblptr
+        pla
+        sta    tblptr + 1
+        plp
+        jsr    nth_check
+        beq    nth_ret
+
+nth_next
+        bvs    nth_ret               ; bit END_OF_LIST_BIT_MASK
+        clc
+        lda    tblptr
+        pha
+        adc    #3
+        sta    tblptr
+        lda    tblptr + 1
+        pha
+        adc    #0
+        sta    tblptr + 1
+        jsr    nth_recurse
+        pla
+        sta    tblptr + 1
+        pla
+        sta    tblptr
+
+nth_check
+        lda    nstore
+        ora    nstore + 1
+
+nth_ret
+        rts
+
+;------------------------------------------------------------------------------
+; exists
+;
+; check for existence of word in either list
+;
+; in:    cmpword (9 bytes) contains space-separated word
+; out:   Z=1 if word was found in either list
+;        Z=0 otherwise
+;------------------------------------------------------------------------------
+cmpword=<gActiveGuess
+
+exists
+        ; vetted list does not contain 'X'
+        lda    cmpword
+        eor    #'X'
+        beq    exists_link
+        eor    #'X'
+        cmp    #'X'
+        bcc    +
+        sbc    #1
++       ldx    #<vet
+        ldy    #>vet
+        jsr    existsi
+        beq    nth_ret
+        ldx    #<all
+        ldy    #>all
+        lda    cmpword
+
+existsi
+        stx    locstore
+        sty    locstore + 1
+        and    #$1f
+        sta    tblptr
+        asl
+        adc    tblptr
+        adc    locstore
+        sta    tblptr
+        lda    locstore + 1
+        adc    #0
+        sta    tblptr + 1
+        lda    #2
+        sta    index
+
+        ; fall through
+
+exists_recurse
+        ldy    #0
+        lda    (tblptr), y
+        asl
+        tya
+        bcs    exists_ret
+        lda    index
+        eor    #word_size * 2
+
+exists_link
+        cmp    #1
+        bcc    exists_ret
+        iny
+        lda    (tblptr), y
+        tax
+        iny
+        lda    (tblptr), y
+        sta    tblptr + 1
+        stx    tblptr
+        ora    tblptr
+        cmp    #1
+        bcc    exists_ret
+        txa
+        clc
+        adc    locstore
+        sta    tblptr
+        lda    tblptr + 1
+        adc    locstore + 1
+        sta    tblptr + 1
+
+exists_next
+        ldy    #0
+        lda    (tblptr), y
+        and    #LETTER_BIT_MASK
+        ora    #'A' - 1
+        ldx    index
+        cmp    cmpword, x
+        bne    exists_g
+        lda    tblptr + 1
+        pha
+        lda    tblptr
+        pha
+        txa
+        pha
+        inc    index
+        inc    index
+        jsr    exists_recurse
+        php
+        pla
+        tax
+        pla
+        sta    index
+        pla
+        sta    tblptr
+        pla        
+        sta    tblptr + 1
+        txa
+        ldx    #0                    ; for compatibility with 16k version
+        pha
+        plp
+        beq    exists_ret
+        clc
+        
+exists_g
+        bcs    exists_ret
+        ldy    #0
+        lda    (tblptr), y
+        asl
+        bmi    exists_ret
+        clc
+        lda    tblptr
+        adc    #3
+        sta    tblptr
+        bcc    exists_next
+        inc    tblptr + 1
+        bcs    exists_next           ; always
+ 
+exists_ret
+        rts
+
+vetlocs
+;A bytes
+        !byte   088                  ; count of entries
+;B bytes
+        !byte   176                  ; count of entries
+;C bytes
+        !byte   193                  ; count of entries
+;D bytes
+        !byte   103                  ; count of entries
+;E bytes
+        !byte   035                  ; count of entries
+;F bytes
+        !byte   144                  ; count of entries
+;G bytes
+        !byte   095                  ; count of entries
+;H bytes
+        !byte   084                  ; count of entries
+;I bytes
+        !byte   026                  ; count of entries
+;J bytes
+        !byte   012                  ; count of entries
+;K bytes
+        !byte   013                  ; count of entries
+;L bytes
+        !byte   094                  ; count of entries
+;M bytes
+        !byte   113                  ; count of entries
+;N bytes
+        !byte   034                  ; count of entries
+;O bytes
+        !byte   033                  ; count of entries
+;P bytes
+        !byte   145                  ; count of entries
+;Q bytes
+        !byte   018                  ; count of entries
+;R bytes
+        !byte   098                  ; count of entries
+;S bytes
+        !byte   235                  ; count of entries
+;T bytes
+        !byte   131                  ; count of entries
+;U bytes
+        !byte   021                  ; count of entries
+;V bytes
+        !byte   046                  ; count of entries
+;W bytes
+        !byte   093                  ; count of entries
+;X bytes
+;;        !byte   000                  ; count of entries
+;Y bytes
+        !byte   013                  ; count of entries
+;Z bytes
+        !byte   005                  ; count of entries
+        
+; skip first 4 bytes of each file because we don't need the record count
+vet
+!bin "res/vet.blitz",,4
+all
+!bin "res/all.blitz",,4
