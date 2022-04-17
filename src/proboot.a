@@ -50,6 +50,13 @@ init
                 sta     unrread1+1
                 sta     unrread2+1
                 sta     unrread3+1
+                txa
+                lsr
+                lsr
+                lsr
+                lsr
+                ora     #$C0
+                sta     FakeMLI+2
 
 opendir
                 ;read volume directory key block
@@ -162,7 +169,7 @@ readdone
                 bpl     -
                 jmp     $2000
 FakeMLI
-                jmp     $FAA6
+                jmp     $C600
 FakeMLILen=*-FakeMLI
 
                 ;no tricks here, just the regular stuff
