@@ -20,21 +20,28 @@ CADIUS=cadius
 
 BUILDDISK=build/Untitled Word Game Pro
 
-asm:
-	mkdir -p build
+asm: md
 	$(ACME) -r build/untitled.lst src/untitled.a 2>build/log
-	cp res/work.po "$(BUILDDISK)".po >>build/log
-	cp res/_FileInformation.txt build/ >>build/log
-	$(CADIUS) ADDFILE "${BUILDDISK}".po "/UNTITLED/" "build/UNTITLED.SYSTEM" >>build/log
+	$(ACME) -r build/proboot.lst src/proboot.a 2>>build/log
+
+dist: asm
+	cp "res/_FileInformation.txt" "build/_FileInformation.txt"
+	cadius CREATEVOLUME "$(BUILDDISK).po" UNTITLED 140kb >>build/log
+	$(CADIUS) ADDFILE "$(BUILDDISK).po" "/UNTITLED/" "build/UNTITLED.SYSTEM" >>build/log
+	bin/changebootloader.sh "$(BUILDDISK).po" build/proboot 2>>build/log
 	bin/po2do.py build/ build/
-	rm "$(BUILDDISK)".po
+	rm "$(BUILDDISK).po"
 
 clean:
 	rm -rf build/
 
-mount:
+md:
+	mkdir -p build
+	touch build/log
+
+mount: dist
 	open "$(BUILDDISK)".dsk
 
-all: clean asm mount
+all: clean mount
 
 al: all

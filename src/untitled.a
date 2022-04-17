@@ -381,6 +381,8 @@ DeleteLetter
          ;-----
 Quit
          bit   CLEARKBD
+         jsr   ROM_TEXT
+         jsr   ROM_HOME
          jsr   MLI
          !byte $65
          !word +

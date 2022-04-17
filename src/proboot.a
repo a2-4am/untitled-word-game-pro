@@ -1,0 +1,350 @@
+!cpu 6502
+!to "build/proboot",plain
+*=$800
+
+                A1L       = $3c
+                A1H       = $3d
+                A2L       = $3e
+                A2H       = $3f
+                tmpsec    = $3c         ;(internal) sector number read from disk
+                reqsec    = $3d         ;(internal) requested sector number
+                curtrk    = $40         ;(internal) track number read from disk
+                adrlo     = $44         ;ProDOS constant
+                adrhi     = $45         ;ProDOS constant
+                scratchlo = $48         ;(internal)
+                scratchhi = $49         ;(internal)
+                sizehi    = $f6
+                step      = $fd
+                tmptrk    = $fe
+                phase     = $ff
+                dirbuf    = $e00
+                PHASEOFF  = $c080
+                DRIVEOFF  = $c088
+                Q6L       = $c08c
+
+                !byte   1
+                ;branch if physical sector 2
+                lsr
+                bne     +
+                ;choose physical sector 2
+                inc     $3d
+                ;slot to address
+                txa
+                jsr     $f87b
+                ora     #$c0
+                pha
+                lda     #$5b
+                pha
+                ;return to read second sector
+                rts
+
++
+init
+                txa
+                tay
+                ora     #$80
+                sta     unrseek+1
+                ora     #$08
+                sta     readdone+1
+                ora     #$0c
+                sta     unrread1+1
+                sta     unrread2+1
+                sta     unrread3+1
+
+opendir
+                ;read volume directory key block
+                txa
+                ldx     #2
+                jsr     readdirsel
+
+                ;include volume directory header in count
+
+firstent
+                lda     #<(dirbuf+4)
+                sta     A1L
+                lda     #>(dirbuf+4)
+                sta     A1H
+nextent
+                ldy     #0
+                lda     (A1L), y
+
+                ;watch for seedling and saplings only
+
+                cmp     #$30
+                bcs     +
+
+                ;match name lengths before attempting to match names
+
+                lda     (A1L), y
+                and     #$0f
+                tax
+                inx
+                !byte   $2c
+-               lda     (A1L), y
+                cmp     filename, y
+                beq     foundname
+
+                ;move to next directory in this block, if possible
+
++               clc
+                lda     A1L
+                adc     #$27
+                sta     A1L
+                bcc     +
+
+                ;there can be only one page crossed, so we can increment instead of adc
+
+                inc     A1H
++               cmp     #<(dirbuf+$1ff) ;4+($27*$0d)
+                lda     A1H
+                sbc     #>(dirbuf+$1ff)
+                bcc     nextent
+
+                ;read next directory block when we reach the end of this block
+
+                ldx     dirbuf+2
+                lda     dirbuf+3
+                jsr     readdirsec
+                bne     firstent
+
+foundname
+                iny
+                dex
+                bne -
+
+                ;cache EOF (file size)
+
+                ldy     #$15
+                lda     (A1L), y
+                cmp     #1
+                iny
+                lda     (A1L), y
+                adc     #1
+                lsr
+                sta     sizehi
+
+                ;cache KEY_POINTER
+
+                ldy     #$11
+                lda     (A1L), y
+                tax
+                iny
+                lda     (A1L), y
+
+                ;read index block in case of sapling
+
+                jsr     readdirsec
+
+                ;restore load offset
+
+                asl     adrhi
+
+readfile
+                ;fetch data block and read it
+
+                ldy     $41 ;zeroed by boot PROM
+                inc     $41
+                ldx     dirbuf, y
+                lda     dirbuf+256, y
+                jsr     seekread
+
+                ;loop while size-$200 is non-zero
+
+                dec     sizehi
+                bne     readfile
+
+readdone
+                lda     DRIVEOFF
+                ldy     #FakeMLILen-1
+-               lda     FakeMLI, y
+                sta     $BF00, y
+                dey
+                bpl     -
+                jmp     $2000
+FakeMLI
+                jmp     $FAA6
+FakeMLILen=*-FakeMLI
+
+                ;no tricks here, just the regular stuff
+
+seek            ldy     #0
+                sty     step
+                asl     phase
+                txa
+                asl
+                sta     tmptrk
+
+copy_cur        lda     tmptrk
+                sta     tmpsec
+                sec
+                sbc     phase
+                beq     +++
+                bcs     +
+                eor     #$ff
+                inc     tmptrk
+                bcc     ++
++               sbc     #1
+                dec     tmptrk
+++              cmp     step
+                bcc     +
+                lda     step
++               cmp     #8
+                bcs     +
+                tay
+                sec
++               jsr     ++++
+                lda     step1, y
+                jsr     delay
+                lda     tmpsec
+                clc
+                jsr     +++++
+                lda     step2, y
+                jsr     delay
+                inc     step
+                bne     copy_cur
++++             jsr     delay
+                clc
+++++            lda     tmptrk
++++++           and     #3
+                rol
+                tax
+
+unrseek
+                lda     PHASEOFF, x
+                rts
+
+delay
+--              ldx     #$11
+-               dex
+                bne     -
+                inc     scratchlo
+                bne     +
+                inc     scratchhi
++               sec
+                sbc     #1
+                bne     --
+                rts
+
+step1           !byte 1, $30, $28, $24, $20, $1e, $1d, $1c
+step2           !byte $70, $2c, $26, $22, $1f, $1e, $1d, $1c
+
+readadr
+-               jsr     readd5aa
+                cmp     #$96
+                bne     -
+                ldy     #3
+-               sta     curtrk
+                jsr     readnib
+                rol
+                sta     tmpsec
+                jsr     readnib
+                and     tmpsec
+                dey
+                bne     -
+seekret         rts
+
+readd5aa
+--
+---             jsr     readnib
+-               cmp     #$d5
+                bne     --
+                jsr     readnib
+                cmp     #$aa
+                bne     -
+
+readnib
+unrread1
+-               lda     Q6L
+                bpl     -
+                rts
+
+readdirsel
+readdirsec
+                ldy     #>dirbuf
+                sty     adrhi
+                ldy     #0
+                sty     adrlo
+
+                ;convert block number to track/sector
+
+seekread        lsr
+                txa
+                ror
+                lsr
+                lsr
+                sta     phase
+                txa
+                and     #3
+                php
+                asl
+                plp
+                rol
+                sta     reqsec
+
+trackd1 = * + 1
+                ldx     #0
+
+                ;if track does not match, then seek
+
+                cpx     phase
+                beq     checksec
+                lda     phase
+                sta     trackd1
+                jsr     seek
+
+                ;match or read/write sector
+
+checksec        jsr     cmpsecrd
+                inc     reqsec
+                inc     reqsec
+
+cmpsecrd        jsr     readadr
+                cmp     reqsec
+                bne     cmpsecrd
+
+                ;read sector data
+
+                jsr     readd5aa
+                eor     #$ad ;zero A if match
+                bne     cmpsecrd
+                ldy     #$aa
+unrread2
+-               ldx     Q6L
+                bpl     -
+                eor     nibtbl - $96, x
+                sta     bit2tbl - $aa, y
+                iny
+                bne     -
+unrread3
+-               ldx     Q6L
+                bpl     -
+                eor     nibtbl - $96, x
+                sta     (adrlo), y ;the real address
+                iny
+                bne     -
+--              ldx     #$a9
+-               inx
+                beq     --
+                lda     (adrlo), y
+                lsr     bit2tbl - $aa, x
+                rol
+                lsr     bit2tbl - $aa, x
+                rol
+                sta     (adrlo), y
+                iny
+                bne     -
+                inc     adrhi
+                rts
+
+filename
+                !byte   filename_e-filename_b
+filename_b
+                !text   "UNTITLED.SYSTEM"
+filename_e
+
+bit2tbl         = $300
+nibtbl          = $36c
+;} ;reloc
+readbuff
+!byte $D3,$C1,$CE,$A0,$C9,$CE,$C3,$AE
+!align $ff,0,0
