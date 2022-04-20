@@ -1,6 +1,6 @@
-Untitled Word Game Pro is a Wordle clone for 8-bit Apple ][ computers. It runs on any Apple ][ with 48K. It can be copied to a ProDOS hard drive if you like that sort of thing.
+Untitled Word Game Pro is a Wordle clone for 8-bit Apple ][ computers. It runs on any Apple ][ with 48K. It can be copied to a ProDOS hard drive if you like that sort of thing. [Download the latest Untitled Word Game Pro disk image](https://github.com/a2-4am/untitled-word-game-pro/releases/tag/v1.1) (version **1.1**, released **2022-04-20**) or [play it online](https://archive.org/details/UntitledWordGamePro).
 
-The game is fully playable and feature-complete. It randomly picks from a curated list of 2048 five-letter words and validates your guesses against a list of 9330 words. There is no "daily" play, just random puzzles as long as your Apple ][ can draw breath. It even plays a little tune when you win.
+The game is fully playable and feature-complete. It randomly picks from a curated list of 1024 five-letter words and validates your guesses against a list of 9330 words. There is no "daily" play, just random puzzles as long as your Apple ][ can draw breath. It even plays a little tune when you win.
 
 ## Background
 
