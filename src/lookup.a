@@ -13,7 +13,7 @@ LETTER_BIT_MASK=$1F
 ; finds and returns nth word from vetted table
 ;
 ; in:    nstore (2 bytes) set to value of n
-;          can technically be any 16-bit value, will be ANDed to 11 bits (0..2047)
+;          can technically be any 16-bit value, will be ANDed to 10 bits (0..1023)
 ; out:   gSolution (9 bytes) contains space-separated word
 ;------------------------------------------------------------------------------
 nth
@@ -25,7 +25,7 @@ nth
         sbc    vetlocs, y
         tax
         lda    nstore + 1
-        and    #7                    ; max 2048 words in vetted list
+        and    #3                    ; 1024 words in vetted list
         sbc    #0
         bcc    .foundbase
         stx    nstore
@@ -224,7 +224,7 @@ exists_next
         sta    index
         pla
         sta    tblptr
-        pla        
+        pla
         sta    tblptr + 1
         txa
         ldx    #0                    ; for compatibility with 16k version
@@ -232,7 +232,7 @@ exists_next
         plp
         beq    exists_ret
         clc
-        
+
 exists_g
         bcs    exists_ret
         ldy    #0
@@ -246,64 +246,64 @@ exists_g
         bcc    exists_next
         inc    tblptr + 1
         bcs    exists_next           ; always
- 
+
 exists_ret
         rts
 
 vetlocs
 ;A bytes
-        !byte   088                  ; count of entries
+        !byte   054                  ; count of entries
 ;B bytes
-        !byte   176                  ; count of entries
+        !byte   080                  ; count of entries
 ;C bytes
-        !byte   193                  ; count of entries
+        !byte   088                  ; count of entries
 ;D bytes
-        !byte   103                  ; count of entries
+        !byte   039                  ; count of entries
 ;E bytes
-        !byte   035                  ; count of entries
+        !byte   023                  ; count of entries
 ;F bytes
-        !byte   144                  ; count of entries
+        !byte   072                  ; count of entries
 ;G bytes
-        !byte   095                  ; count of entries
+        !byte   050                  ; count of entries
 ;H bytes
-        !byte   084                  ; count of entries
+        !byte   028                  ; count of entries
 ;I bytes
-        !byte   026                  ; count of entries
+        !byte   014                  ; count of entries
 ;J bytes
-        !byte   012                  ; count of entries
+        !byte   005                  ; count of entries
 ;K bytes
-        !byte   013                  ; count of entries
+        !byte   004                  ; count of entries
 ;L bytes
-        !byte   094                  ; count of entries
+        !byte   032                  ; count of entries
 ;M bytes
-        !byte   113                  ; count of entries
+        !byte   056                  ; count of entries
 ;N bytes
-        !byte   034                  ; count of entries
-;O bytes
-        !byte   033                  ; count of entries
-;P bytes
-        !byte   145                  ; count of entries
-;Q bytes
         !byte   018                  ; count of entries
+;O bytes
+        !byte   014                  ; count of entries
+;P bytes
+        !byte   068                  ; count of entries
+;Q bytes
+        !byte   014                  ; count of entries
 ;R bytes
-        !byte   098                  ; count of entries
+        !byte   041                  ; count of entries
 ;S bytes
-        !byte   235                  ; count of entries
+        !byte   177                  ; count of entries
 ;T bytes
-        !byte   131                  ; count of entries
+        !byte   059                  ; count of entries
 ;U bytes
-        !byte   021                  ; count of entries
+        !byte   011                  ; count of entries
 ;V bytes
-        !byte   046                  ; count of entries
+        !byte   026                  ; count of entries
 ;W bytes
-        !byte   093                  ; count of entries
+        !byte   041                  ; count of entries
 ;X bytes
 ;;        !byte   000                  ; count of entries
 ;Y bytes
-        !byte   013                  ; count of entries
+        !byte   007                  ; count of entries
 ;Z bytes
-        !byte   005                  ; count of entries
-        
+        !byte   003                  ; count of entries
+
 ; skip first 4 bytes of each file because we don't need the record count
 vet
 !bin "res/vet.blitz",,4
