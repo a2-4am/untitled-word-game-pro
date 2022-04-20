@@ -15,7 +15,7 @@
 ACME=acme
 
 # https://github.com/mach-kernel/cadius
-# version 1.4.0 or later
+# version 1.4.4 or later
 CADIUS=cadius
 
 BUILDDISK=build/Untitled Word Game Pro
