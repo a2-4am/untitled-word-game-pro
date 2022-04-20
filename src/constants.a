@@ -15,6 +15,7 @@ VTAB         = $25        ; byte
 RNDSEED      = $4E        ; word
 MLI =          $BF00
 ROM_TEXT =     $FB2F
+ROM_MACHINEID =$FBB3
 ROM_TEXT_RECALC = $FC22
 ROM_HOME =     $FC58
 ROM_WAIT =     $FCA8
