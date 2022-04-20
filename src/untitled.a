@@ -21,9 +21,21 @@ Start
          jsr   ROM_NORMAL
          jsr   ROM_IN0
          jsr   ROM_PR0
+         lda   ROM_MACHINEID
+         cmp   #$A0
+         beq   @a                    ; Spectrum ED
+         cmp   #$06
+         beq   @a
+         lda   #$DF
+         sta   @mask+1
 @a       lda   sHelpText
          beq   +
-         jsr   ROM_PRINT
+         cmp   #$E1
+         bcc   @print
+         cmp   #$FB
+         bcs   @print
+@mask    and   #$FF                  ; SMC
+@print   jsr   ROM_PRINT
          inc   @a+1
          bne   @a
          inc   @a+2
@@ -183,21 +195,21 @@ gSolutionCopy                        ; 9 bytes (not copied)
 PER_GUESS_GLOBALS_LEN=*-PER_GUESS_GLOBALS
 
 sHelpText
-         !text "         UNTITLED WORD GAME PRO",$8D
+         !text "         Untitled Word Game Pro",$8D
          !text "________________________________________",$8D,$8D
-         !text "GUESS THE WORD IN SIX TRIES. EACH GUESS",$8D
-         !text "MUST BE A VALID FIVE-LETTER WORD.",$8D,$8D
-         !text "PRESS RETURN TO SUBMIT YOUR GUESS, THEN",$8D
-         !text "LETTERS WILL LIGHT UP TO SHOW HOW CLOSE",$8D
-         !text "YOUR GUESS WAS.",$8D,$8D,$8D
-         !text " [ C L ",$0F," W N ]   ",QQ,"O",QQ," IS IN THE WORD AND",$8D
-         !text "                 IN THE RIGHT SPOT",$8D,$8D
-         !text " [ ",$54," H U M P ]   ",QQ,"T",QQ," IS IN THE WORD BUT",$8D
-         !text "                 IN THE WRONG SPOT",$8D,$8D
-         !text " [ B L A D E ]   NONE OF THESE LETTERS",$8D
-         !text "                 APPEAR IN THE WORD",$8D,$8D
+         !text "Guess the word in six tries. Each guess",$8D
+         !text "must be a valid five-letter word.",$8D,$8D
+         !text "Press RETURN to submit your guess, then",$8D
+         !text "letters will light up to show how close",$8D
+         !text "your guess was.",$8D,$8D,$8D
+         !text " [ C L ",$0F," W N ]   ",QQ,"O",QQ," is in the word and",$8D
+         !text "                 in the right spot",$8D,$8D
+         !text " [ ",$54," H U M P ]   ",QQ,"T",QQ," is in the word but",$8D
+         !text "                 in the wrong spot",$8D,$8D
+         !text " [ B L A D E ]   None of these letters",$8D
+         !text "                 appear in the word",$8D,$8D
          !text "________________________________________",$8D
-         !text "       V1.0 (C) 2022 4AM & QKUMBA",0
+         !text "       v1.1 (c) 2022 4am & qkumba",0
 
 BadGuess
 @incdec  inc   <gActiveRow+1
