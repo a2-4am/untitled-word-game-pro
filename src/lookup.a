@@ -17,6 +17,9 @@ LETTER_BIT_MASK=$1F
 ; out:   gSolution (9 bytes) contains space-separated word
 ;------------------------------------------------------------------------------
 nth
+        lda    nstore + 1
+        and    #3                    ; 1024 words in vetted list
+        sta    nstore + 1
         ldy    #0
         sec
 
@@ -25,7 +28,6 @@ nth
         sbc    vetlocs, y
         tax
         lda    nstore + 1
-        and    #3                    ; 1024 words in vetted list
         sbc    #0
         bcc    .foundbase
         stx    nstore
